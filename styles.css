@@ -1,0 +1,276 @@
+:root {
+    --void: #000000;
+    --starlight: #f2eee6;
+    --dust: #8e8a9a;
+    --sol: #ffd27a;
+    --ob-blue: #9cc4ff;
+    --gutter: clamp(16px, 3vw, 32px);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    overflow: hidden;
+    background: var(--void);
+    color: var(--starlight);
+    font-family: 'Geist', system-ui, sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+#galaxyCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    touch-action: none;
+}
+
+/* Title block: small and quiet, the galaxy is the hero. */
+.intro {
+    position: fixed;
+    top: var(--gutter);
+    left: var(--gutter);
+    max-width: 34ch;
+    pointer-events: none;
+}
+
+.intro h1,
+.intro p {
+    text-shadow: 0 0 12px #000, 0 0 3px #000;
+}
+
+.intro h1 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    font-size: clamp(28px, 3.2vw, 40px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+}
+
+.intro p {
+    margin-top: 10px;
+    color: var(--dust);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* View controls */
+.views {
+    position: fixed;
+    top: var(--gutter);
+    right: var(--gutter);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: 52vw;
+}
+
+.views button {
+    appearance: none;
+    border: 1px solid rgba(242, 238, 230, 0.16);
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--starlight);
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.views button:hover {
+    border-color: rgba(242, 238, 230, 0.4);
+}
+
+.views button[aria-pressed="true"] {
+    background: var(--starlight);
+    border-color: var(--starlight);
+    color: var(--void);
+}
+
+.views button[data-view="sun"][aria-pressed="true"] {
+    background: var(--sol);
+    border-color: var(--sol);
+}
+
+.views button:focus-visible {
+    outline: 2px solid var(--ob-blue);
+    outline-offset: 2px;
+}
+
+/* Scale bar + hint */
+.readout {
+    position: fixed;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: var(--gutter);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    pointer-events: none;
+}
+
+.scale {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--starlight);
+    font-variant-numeric: tabular-nums;
+}
+
+.scale-bar {
+    display: block;
+    height: 6px;
+    width: 100px;
+    border: 1px solid rgba(242, 238, 230, 0.7);
+    border-top: none;
+    transition: width 120ms linear;
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--dust);
+    transition: opacity 600ms ease;
+}
+
+.hint.is-done {
+    opacity: 0;
+}
+
+.credit {
+    position: fixed;
+    right: var(--gutter);
+    bottom: calc(var(--gutter) + 22px);
+    font-size: 11px;
+    color: rgba(142, 138, 154, 0.7);
+    text-decoration: none;
+}
+
+.credit:hover,
+.credit:focus-visible {
+    color: var(--starlight);
+    text-decoration: underline;
+}
+
+/* Labels pinned to features in the 3D scene */
+#labels {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+#labels.is-hidden {
+    display: none;
+}
+
+.label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    font-size: 12px;
+    color: rgba(242, 238, 230, 0.78);
+    text-shadow: 0 0 6px #000, 0 0 2px #000;
+    will-change: transform, opacity;
+    transition: opacity 300ms ease;
+}
+
+.label::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+
+.label.arm {
+    color: rgba(156, 196, 255, 0.85);
+}
+
+.label.sun {
+    color: var(--sol);
+    font-weight: 500;
+}
+
+.label.sun::before {
+    width: 9px;
+    height: 9px;
+    background: transparent;
+    border: 1.5px solid var(--sol);
+    box-shadow: 0 0 10px rgba(255, 210, 122, 0.6);
+}
+
+/* Loading */
+#loading {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--void);
+    color: var(--dust);
+    font-size: 13px;
+    z-index: 10;
+    transition: opacity 1.2s ease;
+}
+
+#loading.is-done {
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (max-width: 720px) {
+    .intro {
+        max-width: calc(100vw - 2 * var(--gutter));
+    }
+
+    .intro p {
+        font-size: 12px;
+    }
+
+    .views {
+        top: auto;
+        bottom: calc(var(--gutter) + 52px);
+        left: var(--gutter);
+        right: var(--gutter);
+        max-width: none;
+        justify-content: flex-start;
+    }
+
+    .credit {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .scale-bar,
+    .hint,
+    .label,
+    #loading,
+    .views button {
+        transition: none;
+    }
+}

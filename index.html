@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Milky Way</title>
+    <meta name="description" content="An interactive 3D model of our galaxy, with the Sun's place in the Orion Spur.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=2">
+</head>
+
+<body>
+    <canvas id="galaxyCanvas" aria-label="3D model of the Milky Way galaxy"></canvas>
+
+    <div id="labels" aria-hidden="true"></div>
+
+    <header class="intro">
+        <h1>The Milky Way</h1>
+        <p>Our galaxy, about 100,000 light-years across. The Sun sits in a small spur of stars, 26,000 light-years from the center.</p>
+    </header>
+
+    <nav class="views" aria-label="Views">
+        <button type="button" data-view="overview" aria-pressed="true">Overview</button>
+        <button type="button" data-view="face">Face-on</button>
+        <button type="button" data-view="edge">Edge-on</button>
+        <button type="button" data-view="sun">Find the Sun</button>
+        <button type="button" id="toggleLabels" aria-pressed="true">Labels</button>
+    </nav>
+
+    <footer class="readout">
+        <div class="scale" aria-live="polite">
+            <span class="scale-bar" id="scaleBar"></span>
+            <span id="scaleText">10,000 light-years</span>
+        </div>
+        <p class="hint" id="hint">Drag to orbit. Scroll or pinch to zoom.</p>
+    </footer>
+
+    <a class="credit" href="https://github.com/sai-educ/Milky-Way-3D-Simulator">Based on Milky Way 3D Simulator by sai-educ</a>
+
+    <div id="loading" role="status">Gathering stars</div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.153.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.153.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="script.js?v=2"></script>
+</body>
+
+</html>
