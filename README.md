@@ -11,7 +11,7 @@ Live: https://milkyway.dknia.my.id
 - Views: overview, face-on, edge-on, and "Find the Sun", which flies to the Sun and follows it as the disk rotates.
 - Labels pinned to the galactic center, the arms, and the Sun.
 - A scale bar in light-years that updates as you zoom (1 scene unit = 625 light-years).
-- Zoom in on the Sun (or click its label) to see the Solar System: the eight planets orbit with their real relative periods, and the orbital plane is tilted about 60° to the galactic disk. Sizes and distances are not to scale.
+- Zoom in on the Sun (or click its label) to see the Solar System. Planet positions come from JPL Keplerian orbital elements for today's date (real eccentricity and inclination), distances keep their true ratios, and planet sizes keep their true ratios to each other. Planets are enlarged by one shared factor and the Sun is shrunk so it does not swallow Mercury's orbit. The orbital plane is tilted about 60° to the galactic disk.
 - Click a planet to fly in for a close-up that follows it along its orbit; planets have simple procedural surfaces (cloud bands, continents, polar caps). Earth links out to Google Earth.
 - Click any label, planet, or the Sun for facts. Named nebulae near the Sun (Orion, Lagoon, Eagle, Crab, Carina) sit at their real galactic longitude and distance.
 - Respects `prefers-reduced-motion` and lowers detail on phones and low-power devices.

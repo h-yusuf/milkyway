@@ -15,45 +15,57 @@ export const SUN = {
     ],
 };
 
+// Orbital elements from JPL "Approximate Positions of the Planets" (Table 1,
+// valid 1800–2050), each as [value at J2000, change per century]:
+// a (AU), e, I (deg), L mean longitude (deg), long. of perihelion (deg), long. of ascending node (deg).
+// radiusEarth: equatorial radius relative to Earth.
 export const PLANETS = [
     {
-        id: 'mercury', name: 'Mercury', kind: 'Rocky planet', au: 0.39, years: 0.241, size: 0.022, color: 0x9a948e,
+        id: 'mercury', name: 'Mercury', kind: 'Rocky planet', au: 0.39, years: 0.241, radiusEarth: 0.383, color: 0x9a948e,
+        elements: [0.38709927, 0.00000037, 0.20563593, 0.00001906, 7.00497902, -0.00594749, 252.25032350, 149472.67411175, 77.45779628, 0.16047689, 48.33076593, -0.12534081],
         text: 'The smallest planet and the closest to the Sun. Days reach about 430 °C; nights drop to about −180 °C.',
         facts: [['Distance from the Sun', '0.39 AU (58 million km)'], ['Diameter', '4,879 km'], ['One year', '88 Earth days'], ['Moons', 'None']],
     },
     {
-        id: 'venus', name: 'Venus', kind: 'Rocky planet', au: 0.72, years: 0.615, size: 0.034, color: 0xe3c79a,
+        id: 'venus', name: 'Venus', kind: 'Rocky planet', au: 0.72, years: 0.615, radiusEarth: 0.949, color: 0xe3c79a,
+        elements: [0.72333566, 0.00000390, 0.00677672, -0.00004107, 3.39467605, -0.00078890, 181.97909950, 58517.81538729, 131.60246718, 0.00268329, 76.67984255, -0.27769418],
         text: 'A thick carbon dioxide atmosphere traps heat, making it the hottest planet at about 465 °C. It spins backwards compared to most planets.',
         facts: [['Distance from the Sun', '0.72 AU (108 million km)'], ['Diameter', '12,104 km'], ['One year', '225 Earth days'], ['Moons', 'None']],
     },
     {
-        id: 'earth', name: 'Earth', kind: 'Rocky planet', au: 1.0, years: 1.0, size: 0.036, color: 0x4a7ec2,
+        id: 'earth', name: 'Earth', kind: 'Rocky planet', au: 1.0, years: 1.0, radiusEarth: 1, color: 0x4a7ec2,
+        elements: [1.00000261, 0.00000562, 0.01671123, -0.00004392, -0.00001531, -0.01294668, 100.46457166, 35999.37244981, 102.93768193, 0.32327364, 0.0, 0.0],
         text: 'The only world known to have life. Liquid water covers about 71% of its surface.',
         link: { label: 'Explore Earth in Google Earth', url: 'https://earth.google.com/web/' },
         facts: [['Distance from the Sun', '1 AU (150 million km)'], ['Diameter', '12,742 km'], ['One year', '365.25 days'], ['Moons', '1']],
     },
     {
-        id: 'mars', name: 'Mars', kind: 'Rocky planet', au: 1.52, years: 1.88, size: 0.027, color: 0xc1663f,
+        id: 'mars', name: 'Mars', kind: 'Rocky planet', au: 1.52, years: 1.88, radiusEarth: 0.532, color: 0xc1663f,
+        elements: [1.52371034, 0.00001847, 0.09339410, 0.00007882, 1.84969142, -0.00813131, -4.55343205, 19140.30268499, -23.94362959, 0.44441088, 49.55953891, -0.29257343],
         text: 'A cold desert world. It has Olympus Mons, the largest volcano in the Solar System.',
         facts: [['Distance from the Sun', '1.52 AU (228 million km)'], ['Diameter', '6,779 km'], ['One year', '687 Earth days'], ['Moons', '2']],
     },
     {
-        id: 'jupiter', name: 'Jupiter', kind: 'Gas giant', au: 5.2, years: 11.86, size: 0.075, color: 0xd8b08a,
+        id: 'jupiter', name: 'Jupiter', kind: 'Gas giant', au: 5.2, years: 11.86, radiusEarth: 10.97, color: 0xd8b08a,
+        elements: [5.20288700, -0.00011607, 0.04838624, -0.00013253, 1.30439695, -0.00183714, 34.39644051, 3034.74612775, 14.72847983, 0.21252668, 100.47390909, 0.20469106],
         text: 'More than twice the mass of all the other planets combined. The Great Red Spot is a storm wider than Earth.',
         facts: [['Distance from the Sun', '5.2 AU (778 million km)'], ['Diameter', '139,820 km'], ['One year', '11.9 Earth years'], ['Moons', 'More than 90']],
     },
     {
-        id: 'saturn', name: 'Saturn', kind: 'Gas giant', au: 9.54, years: 29.46, size: 0.064, color: 0xe4cf9a, ring: true,
+        id: 'saturn', name: 'Saturn', kind: 'Gas giant', au: 9.54, years: 29.46, radiusEarth: 9.14, color: 0xe4cf9a, ring: true,
+        elements: [9.53667594, -0.00125060, 0.05386179, -0.00050991, 2.48599187, 0.00193609, 49.95424423, 1222.49362201, 92.59887831, -0.41897216, 113.66242448, -0.28867794],
         text: 'Its rings are mostly chunks of water ice. It is the least dense planet; on average it is lighter than water.',
         facts: [['Distance from the Sun', '9.5 AU (1.43 billion km)'], ['Diameter', '116,460 km'], ['One year', '29.5 Earth years'], ['Moons', 'More than 270']],
     },
     {
-        id: 'uranus', name: 'Uranus', kind: 'Ice giant', au: 19.2, years: 84.0, size: 0.046, color: 0x9fd8de,
+        id: 'uranus', name: 'Uranus', kind: 'Ice giant', au: 19.2, years: 84.0, radiusEarth: 3.98, color: 0x9fd8de,
+        elements: [19.18916464, -0.00196176, 0.04725744, -0.00004397, 0.77263783, -0.00242939, 313.23810451, 428.48202785, 170.95427630, 0.40805281, 74.01692503, 0.04240589],
         text: 'It rolls around the Sun on its side, with its axis tilted about 98°.',
         facts: [['Distance from the Sun', '19.2 AU (2.87 billion km)'], ['Diameter', '50,724 km'], ['One year', '84 Earth years'], ['Moons', 'More than 25']],
     },
     {
-        id: 'neptune', name: 'Neptune', kind: 'Ice giant', au: 30.07, years: 164.8, size: 0.045, color: 0x4a6ed8,
+        id: 'neptune', name: 'Neptune', kind: 'Ice giant', au: 30.07, years: 164.8, radiusEarth: 3.86, color: 0x4a6ed8,
+        elements: [30.06992276, 0.00026291, 0.00859048, 0.00005105, 1.77004347, 0.00035372, -55.12002969, 218.45945325, 44.96476227, -0.32241464, 131.78422574, -0.00508664],
         text: 'The windiest planet, with winds faster than 2,000 km/h. It was found by mathematics before anyone saw it.',
         facts: [['Distance from the Sun', '30.1 AU (4.5 billion km)'], ['Diameter', '49,244 km'], ['One year', '165 Earth years'], ['Moons', '16']],
     },

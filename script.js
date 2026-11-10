@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { SUN, PLANETS, NEBULAE, GALAXY_INFO } from './bodies.js?v=4';
+import { SUN, PLANETS, NEBULAE, GALAXY_INFO } from './bodies.js?v=5';
 
 // =============================================================================
 // SCALE
@@ -503,10 +503,18 @@ scene.add(skyPoints, glowPoints, starPoints, dustPoints);
 
 // =============================================================================
 // SOLAR SYSTEM
-// Shown when the camera gets close to the Sun. It is about 10 million times
-// smaller than the galaxy, so orbits are compressed (square root of distance)
-// and planets are enlarged. The orbital plane is tilted about 60° to the disk.
+// Shown when the camera gets close to the Sun. Planet positions come from real
+// orbital elements for today's date, and distances keep their true ratios.
+// Two compromises make it visible at all: the whole system is drawn far larger
+// than real against the galaxy, and planets are enlarged by one shared factor
+// (their sizes relative to each other are real) while the Sun is shrunk so it
+// does not swallow Mercury's orbit. The orbital plane is tilted about 60° to the disk.
 // =============================================================================
+const AU_UNITS = 0.1; // Neptune's orbit spans about 3 scene units.
+const EARTH_RADIUS_UNITS = 0.006; // Small enough that no two orbits ever overlap.
+const SUN_RADIUS_UNITS = 0.02;
+const SIM_DAYS_PER_SECOND = 365.25 / 20; // One Earth year every 20 seconds.
+
 const solar = new THREE.Group();
 solar.rotation.x = THREE.MathUtils.degToRad(60);
 solar.visible = false;
@@ -521,7 +529,7 @@ function solarMaterial(mat, baseOpacity = 1) {
 }
 
 const sunMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 32, 16),
+    new THREE.SphereGeometry(SUN_RADIUS_UNITS, 32, 16),
     solarMaterial(new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.82, 0.55).multiplyScalar(2.2) }))
 );
 solar.add(sunMesh);
@@ -593,38 +601,68 @@ function surfaceTexture(planet) {
     return texture;
 }
 
-function orbitRadius(au) {
-    return 0.28 + 2.5 * Math.sqrt(au / 30.07);
+// Heliocentric ecliptic position (AU) from JPL Keplerian elements.
+// T is Julian centuries since J2000; meanAnomalyDeg overrides the date's
+// mean anomaly, which is how the orbit path is sampled.
+function keplerPosition(elements, T, out, meanAnomalyDeg = null) {
+    const at = (i) => elements[i] + elements[i + 1] * T;
+    const a = at(0);
+    const e = at(2);
+    const I = THREE.MathUtils.degToRad(at(4));
+    const L = at(6);
+    const peri = at(8);
+    const node = at(10);
+    const omega = THREE.MathUtils.degToRad(peri - node);
+    const Omega = THREE.MathUtils.degToRad(node);
+    let M = meanAnomalyDeg ?? (L - peri);
+    M = THREE.MathUtils.degToRad(((M % 360) + 540) % 360 - 180);
+    let E = M + e * Math.sin(M);
+    for (let i = 0; i < 6; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    const xp = a * (Math.cos(E) - e);
+    const yp = a * Math.sqrt(1 - e * e) * Math.sin(E);
+    const cw = Math.cos(omega);
+    const sw = Math.sin(omega);
+    const cO = Math.cos(Omega);
+    const sO = Math.sin(Omega);
+    const cI = Math.cos(I);
+    const sI = Math.sin(I);
+    const x = (cw * cO - sw * sO * cI) * xp + (-sw * cO - cw * sO * cI) * yp;
+    const y = (cw * sO + sw * cO * cI) * xp + (-sw * sO + cw * cO * cI) * yp;
+    const z = (sw * sI) * xp + (cw * sI) * yp;
+    // Ecliptic (x, y, z north) -> group space (x, y up, z).
+    return out.set(x * AU_UNITS, z * AU_UNITS, -y * AU_UNITS);
 }
+
+function julianCenturies(ms) {
+    return (ms / 86400000 + 2440587.5 - 2451545.0) / 36525;
+}
+
+let simTime = Date.now();
 
 const hitTargets = [];
 const planetBodies = PLANETS.map((planet) => {
-    const radius = orbitRadius(planet.au);
+    const size = planet.radiusEarth * EARTH_RADIUS_UNITS;
+    const T = julianCenturies(simTime);
 
-    const ringPoints = [];
-    for (let i = 0; i <= 128; i++) {
-        const a = (i / 128) * Math.PI * 2;
-        ringPoints.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    const pathPoints = [];
+    for (let i = 0; i <= 256; i++) {
+        pathPoints.push(keplerPosition(planet.elements, T, new THREE.Vector3(), (i / 256) * 360));
     }
     solar.add(new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(ringPoints),
+        new THREE.BufferGeometry().setFromPoints(pathPoints),
         solarMaterial(new THREE.LineBasicMaterial({ color: 0x9cc4ff, depthWrite: false }), 0.22)
     ));
 
-    const pivot = new THREE.Group();
-    pivot.rotation.y = Math.random() * Math.PI * 2;
-    solar.add(pivot);
-
     const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(planet.size * 1.4, 24, 16),
+        new THREE.SphereGeometry(size, 48, 24),
         solarMaterial(new THREE.MeshStandardMaterial({ map: surfaceTexture(planet), roughness: 0.9, metalness: 0 }))
     );
-    mesh.position.x = radius;
-    pivot.add(mesh);
+    keplerPosition(planet.elements, T, mesh.position);
+    solar.add(mesh);
 
     if (planet.ring) {
         const ring = new THREE.Mesh(
-            new THREE.RingGeometry(planet.size * 1.9, planet.size * 3.2, 48),
+            new THREE.RingGeometry(size * 1.24, size * 2.27, 64),
             solarMaterial(new THREE.MeshStandardMaterial({ color: 0xcdb98f, side: THREE.DoubleSide, depthWrite: false, roughness: 1 }), 0.7)
         );
         ring.rotation.x = -Math.PI / 2 + THREE.MathUtils.degToRad(27);
@@ -633,18 +671,17 @@ const planetBodies = PLANETS.map((planet) => {
 
     // Small planets are hard to click; give each a larger invisible target.
     const hit = new THREE.Mesh(
-        new THREE.SphereGeometry(Math.max(planet.size * 3, 0.12), 12, 8),
+        new THREE.SphereGeometry(Math.max(size * 3, 0.03), 12, 8),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
     );
     hit.userData.info = planet;
     mesh.add(hit);
     hitTargets.push(hit);
 
-    // One Earth orbit every 20 seconds; the rest keep their real ratios.
-    return { planet, pivot, mesh, speed: (Math.PI * 2) / (planet.years * 20) };
+    return { planet, mesh, size };
 });
 
-const sunHit = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+const sunHit = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
 sunHit.userData.info = SUN;
 solar.add(sunHit);
 hitTargets.push(sunHit);
@@ -655,13 +692,13 @@ function updateSolarSystem(delta) {
     sunWorldPosition(solar.position);
     const distance = camera.position.distanceTo(solar.position);
     solarFade = 1 - THREE.MathUtils.smoothstep(distance, 7, 12);
-    uniforms.uFade.value = 1 - solarFade * 0.82;
+    uniforms.uFade.value = 1 - solarFade * 0.9;
     solar.visible = solarFade > 0.01;
-    if (!solar.visible) return;
+    if (!reducedMotion) simTime += delta * SIM_DAYS_PER_SECOND * 86400000;
+    const T = julianCenturies(simTime);
+    for (const body of planetBodies) keplerPosition(body.planet.elements, T, body.mesh.position);
+    solar.updateMatrixWorld(true);
     for (const mat of solarMaterials) mat.opacity = mat.userData.baseOpacity * solarFade;
-    if (!reducedMotion) {
-        for (const body of planetBodies) body.pivot.rotation.y += body.speed * delta;
-    }
 }
 
 // =============================================================================
@@ -777,12 +814,20 @@ function updateLabels() {
         nebula: galaxyScale && distanceToSun < 45,
         planet: solarFade > 0.6,
     };
+    // With true distances the inner planets crowd the Sun; drop their names
+    // until zooming in gives them room.
+    tmp.copy(solar.position).project(camera);
+    const sunX = (tmp.x * 0.5 + 0.5) * w;
+    const sunY = (-tmp.y * 0.5 + 0.5) * h;
     for (const label of labels) {
         label.getWorldPosition(label.world);
         tmp.copy(label.world).project(camera);
         const onScreen = tmp.z < 1 && tmp.x > -1.05 && tmp.x < 1.05 && tmp.y > -1.05 && tmp.y < 1.05;
         const isFocused = activeView === 'planet' && focusedBody && label.el.textContent === focusedBody.planet.name;
-        const visible = onScreen && show[label.kind] && !isFocused;
+        const px = (tmp.x * 0.5 + 0.5) * w;
+        const py = (-tmp.y * 0.5 + 0.5) * h;
+        const crowded = label.kind === 'planet' && Math.hypot(px - sunX, py - sunY) < 30;
+        const visible = onScreen && show[label.kind] && !isFocused && !crowded;
         if (visible !== label.visible) {
             label.visible = visible;
             label.el.classList.toggle('is-off', !visible);
@@ -920,8 +965,8 @@ const views = {
         const sun = sunWorldPosition(new THREE.Vector3());
         const toSun = sun.clone().sub(p).normalize();
         const normal = new THREE.Vector3(0, 1, 0).applyEuler(solar.rotation);
-        const size = focusedBody.planet.size * 1.4;
-        return { target: p, position: p.clone().addScaledVector(toSun, size * 9).addScaledVector(normal, size * 5) };
+        const size = focusedBody.size;
+        return { target: p, position: p.clone().addScaledVector(toSun, size * 6).addScaledVector(normal, size * 2.5) };
     },
 };
 
@@ -958,7 +1003,7 @@ function goToView(name) {
     const { target, position } = views[name]();
     const pressed = followsSun(name) ? 'sun' : name;
     document.querySelectorAll('[data-view]').forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.view === pressed)));
-    controls.minDistance = name === 'planet' ? 0.04 : followsSun(name) ? 0.35 : 8;
+    controls.minDistance = name === 'planet' ? focusedBody.size * 1.6 : followsSun(name) ? 0.05 : 8;
     if (reducedMotion) {
         controls.target.copy(target);
         camera.position.copy(position);
@@ -1068,16 +1113,29 @@ function syncSize() {
     applyRenderScale(renderState.renderScale, true);
 }
 
+// Close-ups are only a few thousandths of a unit away; keep the near plane in step.
+function updateNearPlane() {
+    const near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.02, 0.0002, 0.1);
+    if (Math.abs(near - camera.near) / camera.near > 0.2) {
+        camera.near = near;
+        camera.updateProjectionMatrix();
+    }
+}
+
 function animate(now) {
     requestAnimationFrame(animate);
     syncSize();
     const delta = Math.min(clock.getDelta(), 0.1);
     if (!reducedMotion) uniforms.uTime.value += delta * config.physics.rotationSpeed * 1000;
 
-    updateTween(now);
-    followSun();
-    controls.update();
+    // Move the Solar System first, then follow it, so the camera never lags a frame behind.
+    // Following runs before the tween: on the frame a fly-to ends, the tween already
+    // lands exactly on the target, and following after it would add that frame's motion twice.
     updateSolarSystem(delta);
+    followSun();
+    updateTween(now);
+    controls.update();
+    updateNearPlane();
     updateAdaptiveResolution(delta);
     composer.render();
     updateLabels();
@@ -1091,4 +1149,5 @@ function animate(now) {
 
 
 requestAnimationFrame(animate);
+
 
