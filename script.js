@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SUN, PLANETS, NEBULAE, GALAXY_INFO } from './bodies.js?v=3';
 
 // =============================================================================
 // SCALE
@@ -109,10 +110,11 @@ const rotatingVertexShader = `
     uniform float uExpansion;
     uniform float uRotationDirection;
     uniform float uPixelRatio;
+    uniform float uFade;
 
     void main() {
         vColor = customColor;
-        vAlpha = alpha;
+        vAlpha = alpha * uFade;
         vec3 pos = position * uExpansion;
         float radius = length(pos.xz);
         float a = uTime * uRotationDirection * (1.0 + 6.0 / (radius + 3.0));
@@ -459,6 +461,8 @@ const uniforms = {
     uExpansion: { value: reducedMotion ? 1 : 0 },
     uRotationDirection: { value: config.physics.rotationDirection },
     uPixelRatio: { value: 1 },
+    // Dims the galaxy while the Solar System is in view.
+    uFade: { value: 1 },
 };
 
 function createPoints(data, material) {
@@ -496,6 +500,104 @@ glowPoints.renderOrder = 0;
 starPoints.renderOrder = 1;
 dustPoints.renderOrder = 2;
 scene.add(skyPoints, glowPoints, starPoints, dustPoints);
+
+// =============================================================================
+// SOLAR SYSTEM
+// Shown when the camera gets close to the Sun. It is about 10 million times
+// smaller than the galaxy, so orbits are compressed (square root of distance)
+// and planets are enlarged. The orbital plane is tilted about 60° to the disk.
+// =============================================================================
+const solar = new THREE.Group();
+solar.rotation.x = THREE.MathUtils.degToRad(60);
+solar.visible = false;
+scene.add(solar);
+
+const solarMaterials = [];
+function solarMaterial(mat, baseOpacity = 1) {
+    mat.transparent = true;
+    mat.userData.baseOpacity = baseOpacity;
+    solarMaterials.push(mat);
+    return mat;
+}
+
+const sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 32, 16),
+    solarMaterial(new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.82, 0.55).multiplyScalar(2.2) }))
+);
+solar.add(sunMesh);
+solar.add(new THREE.PointLight(0xfff1dc, 2.4, 0, 0));
+scene.add(new THREE.AmbientLight(0x6f7f99, 0.18));
+
+function orbitRadius(au) {
+    return 0.28 + 2.5 * Math.sqrt(au / 30.07);
+}
+
+const hitTargets = [];
+const planetBodies = PLANETS.map((planet) => {
+    const radius = orbitRadius(planet.au);
+
+    const ringPoints = [];
+    for (let i = 0; i <= 128; i++) {
+        const a = (i / 128) * Math.PI * 2;
+        ringPoints.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    }
+    solar.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(ringPoints),
+        solarMaterial(new THREE.LineBasicMaterial({ color: 0x9cc4ff, depthWrite: false }), 0.22)
+    ));
+
+    const pivot = new THREE.Group();
+    pivot.rotation.y = Math.random() * Math.PI * 2;
+    solar.add(pivot);
+
+    const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(planet.size * 1.4, 24, 16),
+        solarMaterial(new THREE.MeshStandardMaterial({ color: planet.color, roughness: 0.85, metalness: 0 }))
+    );
+    mesh.position.x = radius;
+    pivot.add(mesh);
+
+    if (planet.ring) {
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(planet.size * 1.9, planet.size * 3.2, 48),
+            solarMaterial(new THREE.MeshBasicMaterial({ color: 0xd9c6a0, side: THREE.DoubleSide, depthWrite: false }), 0.55)
+        );
+        ring.rotation.x = -Math.PI / 2 + THREE.MathUtils.degToRad(27);
+        mesh.add(ring);
+    }
+
+    // Small planets are hard to click; give each a larger invisible target.
+    const hit = new THREE.Mesh(
+        new THREE.SphereGeometry(Math.max(planet.size * 3, 0.12), 12, 8),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hit.userData.info = planet;
+    mesh.add(hit);
+    hitTargets.push(hit);
+
+    // One Earth orbit every 20 seconds; the rest keep their real ratios.
+    return { planet, pivot, mesh, speed: (Math.PI * 2) / (planet.years * 20) };
+});
+
+const sunHit = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+sunHit.userData.info = SUN;
+solar.add(sunHit);
+hitTargets.push(sunHit);
+
+let solarFade = 0;
+
+function updateSolarSystem(delta) {
+    sunWorldPosition(solar.position);
+    const distance = camera.position.distanceTo(solar.position);
+    solarFade = 1 - THREE.MathUtils.smoothstep(distance, 7, 12);
+    uniforms.uFade.value = 1 - solarFade * 0.82;
+    solar.visible = solarFade > 0.01;
+    if (!solar.visible) return;
+    for (const mat of solarMaterials) mat.opacity = mat.userData.baseOpacity * solarFade;
+    if (!reducedMotion) {
+        for (const body of planetBodies) body.pivot.rotation.y += body.speed * delta;
+    }
+}
 
 // =============================================================================
 // POST PROCESSING
@@ -547,24 +649,49 @@ applyRenderScale(performanceProfile.initialRenderScale, true);
 const labelLayer = document.getElementById('labels');
 const labels = [];
 
-function addLabel(text, className, getWorldPosition) {
-    const el = document.createElement('div');
-    el.className = `label ${className}`;
+// Labels are buttons: each one opens the info panel for what it marks.
+function addLabel(text, kind, info, getWorldPosition) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = `label ${kind} is-off`;
     el.textContent = text;
+    el.addEventListener('click', () => {
+        openInfo(info);
+        if (info === SUN) goToView('solar');
+    });
     labelLayer.appendChild(el);
-    labels.push({ el, getWorldPosition, world: new THREE.Vector3() });
+    labels.push({ el, kind, getWorldPosition, world: new THREE.Vector3(), visible: false });
 }
 
 const tmp = new THREE.Vector3();
-addLabel('Galactic center', 'core', (out) => out.set(0, 0, 0));
+addLabel('Galactic center', 'core', GALAXY_INFO.core, (out) => out.set(0, 0, 0));
 for (const arm of config.arms.definitions) {
     const r = arm.strength < 1 ? 52 : 64;
     const theta = armTheta(r, arm.offset);
     const x = Math.cos(theta) * r;
     const z = Math.sin(theta) * r;
-    addLabel(arm.name, 'arm', (out) => rotatePoint(x, z, uniforms.uTime.value, uniforms.uExpansion.value, out));
+    addLabel(arm.name, 'arm', GALAXY_INFO[arm.name], (out) => rotatePoint(x, z, uniforms.uTime.value, uniforms.uExpansion.value, out));
 }
-addLabel('The Sun', 'sun', (out) => sunWorldPosition(out));
+addLabel('The Sun', 'sun', SUN, (out) => sunWorldPosition(out));
+
+// Nebulae sit at their real galactic longitude and distance from the Sun.
+// Longitude 0° points at the galactic center, 90° along the Sun's orbit.
+const toCenter = new THREE.Vector3();
+const alongOrbit = new THREE.Vector3();
+function nebulaPosition(nebula, out) {
+    sunWorldPosition(out);
+    toCenter.set(-out.x, 0, -out.z).normalize();
+    alongOrbit.set(out.z, 0, -out.x).normalize().multiplyScalar(config.physics.rotationDirection < 0 ? 1 : -1);
+    const l = THREE.MathUtils.degToRad(nebula.l);
+    const d = nebula.ly / LY_PER_UNIT;
+    return out.addScaledVector(toCenter, Math.cos(l) * d).addScaledVector(alongOrbit, Math.sin(l) * d);
+}
+for (const nebula of NEBULAE) {
+    addLabel(nebula.name, 'nebula', nebula, (out) => nebulaPosition(nebula, out));
+}
+for (const body of planetBodies) {
+    addLabel(body.planet.name, 'planet', body.planet, (out) => body.mesh.getWorldPosition(out));
+}
 
 function sunWorldPosition(out) {
     rotatePoint(SUN_POSITION.x, SUN_POSITION.z, uniforms.uTime.value, uniforms.uExpansion.value, out);
@@ -577,22 +704,83 @@ function updateLabels() {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const distance = camera.position.distanceTo(controls.target);
+    const distanceToSun = camera.position.distanceTo(solar.position);
     // Seen edge-on, the arms collapse into one line and their names overlap.
     const elevation = Math.asin(Math.min(1, Math.abs(camera.position.y - controls.target.y) / distance));
-    const armsReadable = distance >= 45 && elevation > THREE.MathUtils.degToRad(12);
+    const galaxyScale = solarFade < 0.3 && uniforms.uExpansion.value > 0.97;
+    const show = {
+        core: galaxyScale,
+        arm: galaxyScale && distance >= 45 && elevation > THREE.MathUtils.degToRad(12),
+        sun: uniforms.uExpansion.value > 0.97,
+        nebula: galaxyScale && distanceToSun < 45,
+        planet: solarFade > 0.6,
+    };
     for (const label of labels) {
         label.getWorldPosition(label.world);
         tmp.copy(label.world).project(camera);
-        const onScreen = tmp.z < 1 && tmp.x > -1.1 && tmp.x < 1.1 && tmp.y > -1.1 && tmp.y < 1.1;
-        const hideArm = label.el.classList.contains('arm') && !armsReadable;
-        label.el.style.opacity = onScreen && !hideArm && uniforms.uExpansion.value > 0.97 ? '1' : '0';
+        const onScreen = tmp.z < 1 && tmp.x > -1.05 && tmp.x < 1.05 && tmp.y > -1.05 && tmp.y < 1.05;
+        const visible = onScreen && show[label.kind];
+        if (visible !== label.visible) {
+            label.visible = visible;
+            label.el.classList.toggle('is-off', !visible);
+        }
         if (onScreen) {
-            const x = (tmp.x * 0.5 + 0.5) * w - 2.5;
-            const y = (-tmp.y * 0.5 + 0.5) * h - 9;
+            const x = (tmp.x * 0.5 + 0.5) * w - 6;
+            const y = (-tmp.y * 0.5 + 0.5) * h - 13;
             label.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
         }
     }
 }
+
+// =============================================================================
+// INFO PANEL
+// =============================================================================
+const infoPanel = document.getElementById('info');
+const infoTitle = document.getElementById('infoTitle');
+const infoKind = document.getElementById('infoKind');
+const infoText = document.getElementById('infoText');
+const infoFacts = document.getElementById('infoFacts');
+
+function openInfo(info) {
+    infoTitle.textContent = info.name;
+    infoKind.textContent = info.kind;
+    infoText.textContent = info.text;
+    infoFacts.replaceChildren(...info.facts.flatMap(([term, value]) => {
+        const dt = document.createElement('dt');
+        dt.textContent = term;
+        const dd = document.createElement('dd');
+        dd.textContent = value;
+        return [dt, dd];
+    }));
+    infoPanel.hidden = false;
+}
+
+function closeInfo() {
+    infoPanel.hidden = true;
+}
+
+document.getElementById('infoClose').addEventListener('click', closeInfo);
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeInfo();
+});
+
+// Clicking (not dragging) on a planet or the Sun opens its info.
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let pointerDown = null;
+renderer.domElement.addEventListener('pointerdown', (event) => {
+    pointerDown = { x: event.clientX, y: event.clientY };
+});
+renderer.domElement.addEventListener('pointerup', (event) => {
+    if (!pointerDown || solarFade < 0.5) return;
+    const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+    pointerDown = null;
+    if (moved > 6) return;
+    pointer.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObjects(hitTargets, false)[0];
+    if (hit) openInfo(hit.object.userData.info);
+});
 
 // =============================================================================
 // SCALE BAR
@@ -602,7 +790,21 @@ const scaleText = document.getElementById('scaleText');
 const niceSteps = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
 let lastScaleKey = '';
 
+const scaleBox = document.querySelector('.scale');
+let solarNoteShown = false;
+
 function updateScaleBar() {
+    // Light-years mean nothing at Solar System scale, which is not to scale here.
+    const solarNote = solarFade > 0.5;
+    if (solarNote !== solarNoteShown) {
+        solarNoteShown = solarNote;
+        scaleBox.classList.toggle('is-solar', solarNote);
+        lastScaleKey = '';
+        if (solarNote) scaleText.textContent = 'Solar System: sizes and distances not to scale';
+        hint.textContent = solarNote ? 'Click a planet or the Sun to learn about it.' : 'Drag to orbit. Scroll or pinch to zoom.';
+        hint.classList.remove('is-done');
+    }
+    if (solarNote) return;
     const distance = camera.position.distanceTo(controls.target);
     const visibleHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const pxPerLy = window.innerHeight / (visibleHeight * LY_PER_UNIT);
@@ -635,7 +837,16 @@ const views = {
         const outward = new THREE.Vector3(sun.x, 0, sun.z).normalize();
         return { target: sun, position: sun.clone().add(outward.multiplyScalar(14)).add(new THREE.Vector3(0, 9, 0)) };
     },
+    // Look down on the tilted orbital plane, slightly from the side.
+    solar: () => {
+        const sun = sunWorldPosition(new THREE.Vector3());
+        const normal = new THREE.Vector3(0, 1, 0).applyEuler(solar.rotation);
+        const side = new THREE.Vector3(1, 0, 0).applyEuler(solar.rotation);
+        return { target: sun, position: sun.clone().addScaledVector(normal, 5.6 * fit()).addScaledVector(side, 2.4 * fit()) };
+    },
 };
+
+const followsSun = (view) => view === 'sun' || view === 'solar';
 
 let activeView = 'overview';
 let tween = null;
@@ -644,7 +855,8 @@ const followOffset = new THREE.Vector3();
 function goToView(name) {
     activeView = name;
     const { target, position } = views[name]();
-    document.querySelectorAll('[data-view]').forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.view === name)));
+    document.querySelectorAll('[data-view]').forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.view === (name === 'solar' ? 'sun' : name))));
+    controls.minDistance = followsSun(name) ? 0.35 : 8;
     if (reducedMotion) {
         controls.target.copy(target);
         camera.position.copy(position);
@@ -664,11 +876,12 @@ function updateTween(now) {
     if (!tween) return;
     const p = Math.min(1, (now - tween.start) / tween.duration);
     const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-    if (activeView === 'sun') {
+    if (followsSun(activeView)) {
         tween.toTarget = sunWorldPosition(new THREE.Vector3());
+        tween.toPosition = views[activeView]().position;
     }
     controls.target.lerpVectors(tween.fromTarget, tween.toTarget, e);
-    camera.position.lerpVectors(tween.fromPosition, activeView === 'sun' ? views.sun().position : tween.toPosition, e);
+    camera.position.lerpVectors(tween.fromPosition, tween.toPosition, e);
     if (p >= 1) tween = null;
 }
 
@@ -677,7 +890,7 @@ const prevSun = new THREE.Vector3();
 const currentSun = new THREE.Vector3();
 function followSun() {
     sunWorldPosition(currentSun);
-    if (activeView === 'sun' && !tween) {
+    if (followsSun(activeView) && !tween) {
         followOffset.subVectors(currentSun, prevSun);
         controls.target.add(followOffset);
         camera.position.add(followOffset);
@@ -699,7 +912,8 @@ labelToggle.addEventListener('click', () => {
 controls.addEventListener('start', () => {
     tween = null;
     hint.classList.add('is-done');
-    if (activeView !== 'sun') {
+    if (!followsSun(activeView)) {
+        controls.minDistance = 8;
         document.querySelectorAll('[data-view]').forEach((btn) => btn.setAttribute('aria-pressed', 'false'));
         activeView = 'free';
     }
@@ -759,6 +973,7 @@ function animate(now) {
     updateTween(now);
     followSun();
     controls.update();
+    updateSolarSystem(delta);
     updateAdaptiveResolution(delta);
     composer.render();
     updateLabels();

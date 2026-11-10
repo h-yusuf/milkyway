@@ -4,6 +4,7 @@
     --dust: #8e8a9a;
     --sol: #ffd27a;
     --ob-blue: #9cc4ff;
+    --h-alpha: #ff6b80;
     --gutter: clamp(16px, 3vw, 32px);
 }
 
@@ -170,7 +171,7 @@ body {
     text-decoration: underline;
 }
 
-/* Labels pinned to features in the 3D scene */
+/* Labels pinned to features in the 3D scene. Each one is a button. */
 #labels {
     position: fixed;
     inset: 0;
@@ -189,12 +190,36 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    white-space: nowrap;
+    padding: 4px 6px 4px 4px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    font: inherit;
     font-size: 12px;
-    color: rgba(242, 238, 230, 0.78);
+    white-space: nowrap;
+    color: rgba(242, 238, 230, 0.8);
     text-shadow: 0 0 6px #000, 0 0 2px #000;
+    cursor: pointer;
+    pointer-events: auto;
     will-change: transform, opacity;
-    transition: opacity 300ms ease;
+    transition: opacity 300ms ease, visibility 0s;
+}
+
+.label:hover {
+    color: var(--starlight);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.label:focus-visible {
+    outline: 2px solid var(--ob-blue);
+}
+
+.label.is-off {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 300ms ease, visibility 0s 300ms;
 }
 
 .label::before {
@@ -210,6 +235,25 @@ body {
     color: rgba(156, 196, 255, 0.85);
 }
 
+.label.nebula {
+    color: var(--h-alpha);
+}
+
+.label.nebula::before {
+    width: 7px;
+    height: 7px;
+    background: radial-gradient(circle, var(--h-alpha) 0%, rgba(255, 107, 128, 0) 75%);
+}
+
+.label.planet {
+    font-size: 11px;
+    color: rgba(242, 238, 230, 0.7);
+}
+
+.label.planet::before {
+    display: none;
+}
+
 .label.sun {
     color: var(--sol);
     font-weight: 500;
@@ -221,6 +265,89 @@ body {
     background: transparent;
     border: 1.5px solid var(--sol);
     box-shadow: 0 0 10px rgba(255, 210, 122, 0.6);
+}
+
+/* Info panel */
+.info {
+    position: fixed;
+    top: calc(var(--gutter) + 56px);
+    right: var(--gutter);
+    width: min(320px, calc(100vw - 2 * var(--gutter)));
+    padding: 20px 22px 22px;
+    border: 1px solid rgba(242, 238, 230, 0.14);
+    border-radius: 14px;
+    background: rgba(6, 7, 12, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.info[hidden] {
+    display: none;
+}
+
+.info h2 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    font-size: 28px;
+    line-height: 1.1;
+    padding-right: 28px;
+}
+
+.info-kind {
+    margin-top: 4px;
+    color: var(--dust);
+    font-size: 13px;
+}
+
+.info-text {
+    margin-top: 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 38ch;
+}
+
+.info-facts {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    font-size: 13px;
+}
+
+.info-facts dt {
+    color: var(--dust);
+}
+
+.info-facts dd {
+    font-variant-numeric: tabular-nums;
+}
+
+.info-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--dust);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.info-close:hover {
+    color: var(--starlight);
+    background: rgba(242, 238, 230, 0.08);
+}
+
+.info-close:focus-visible {
+    outline: 2px solid var(--ob-blue);
+}
+
+.scale.is-solar .scale-bar {
+    display: none;
 }
 
 /* Loading */
@@ -242,6 +369,17 @@ body {
 }
 
 @media (max-width: 720px) {
+    .info {
+        top: auto;
+        bottom: var(--gutter);
+        left: var(--gutter);
+        right: var(--gutter);
+        width: auto;
+        max-height: 55vh;
+        overflow-y: auto;
+        z-index: 5;
+    }
+
     .intro {
         max-width: calc(100vw - 2 * var(--gutter));
     }

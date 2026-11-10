@@ -11,6 +11,8 @@ Live: https://milkyway.dknia.my.id
 - Views: overview, face-on, edge-on, and "Find the Sun", which flies to the Sun and follows it as the disk rotates.
 - Labels pinned to the galactic center, the arms, and the Sun.
 - A scale bar in light-years that updates as you zoom (1 scene unit = 625 light-years).
+- Zoom in on the Sun (or click its label) to see the Solar System: the eight planets orbit with their real relative periods, and the orbital plane is tilted about 60° to the galactic disk. Sizes and distances are not to scale.
+- Click any label, planet, or the Sun for facts. Named nebulae near the Sun (Orion, Lagoon, Eagle, Crab, Carina) sit at their real galactic longitude and distance.
 - Respects `prefers-reduced-motion` and lowers detail on phones and low-power devices.
 
 ## Run locally
@@ -25,7 +27,7 @@ Then open http://localhost:8000.
 
 ## Deploy
 
-Any static file server works. The homelab deployment serves the files with `nginx:alpine` behind a Cloudflare Tunnel. When `script.js` or `styles.css` changes, bump the `?v=` query in `index.html` so Cloudflare does not serve the cached copy.
+Any static file server works. The homelab deployment serves the files with `nginx:alpine` behind a Cloudflare Tunnel. When `script.js`, `styles.css`, or `bodies.js` changes, bump the `?v=` query (in `index.html`, and in the `bodies.js` import inside `script.js`) so Cloudflare does not serve the cached copy.
 
 ## Credits
 
