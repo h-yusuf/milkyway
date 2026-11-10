@@ -533,7 +533,7 @@ const sunMesh = new THREE.Mesh(
     solarMaterial(new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.82, 0.55).multiplyScalar(2.2) }))
 );
 solar.add(sunMesh);
-solar.add(new THREE.PointLight(0xfff1dc, 1.15, 0, 0));
+solar.add(new THREE.PointLight(0xfff1dc, 0.72, 0, 0));
 scene.add(new THREE.AmbientLight(0x6f7f99, 0.18));
 
 // Small procedural surface maps (equirectangular), so close-ups are not flat discs.
@@ -639,6 +639,58 @@ function julianCenturies(ms) {
 
 let simTime = Date.now();
 
+// Photo maps: Solar System Scope (CC BY 4.0, based on NASA imagery), plus the
+// NASA 3D Resources Mars map (public domain). The procedural map shows until the photo loads.
+const TEXTURE_FILES = {
+    mercury: '2k_mercury.jpg',
+    venus: '2k_venus_atmosphere.jpg', // the cloud tops we actually see, not the radar surface
+    earth: '2k_earth_daymap.jpg',
+    mars: 'mars.jpg',
+    jupiter: '2k_jupiter.jpg',
+    saturn: '2k_saturn.jpg',
+    uranus: '2k_uranus.jpg',
+    neptune: '2k_neptune.jpg',
+};
+// Axial tilt in degrees; Venus above 90° means it spins backwards.
+const AXIAL_TILT = { mercury: 0.03, venus: 177.4, earth: 23.44, mars: 25.19, jupiter: 3.13, saturn: 26.73, uranus: 97.77, neptune: 28.32 };
+const textureLoader = new THREE.TextureLoader();
+
+function loadTexture(file, onLoad) {
+    textureLoader.load(`textures/${file}?v=1`, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        onLoad(texture);
+    });
+}
+
+loadTexture('2k_sun.jpg', (texture) => {
+    sunMesh.material.map = texture;
+    sunMesh.material.color.setRGB(1.7, 1.45, 1.15);
+    sunMesh.material.needsUpdate = true;
+});
+
+function planetMaterial(planet) {
+    const mat = solarMaterial(new THREE.MeshStandardMaterial({ map: surfaceTexture(planet), roughness: 0.9, metalness: 0 }));
+    loadTexture(TEXTURE_FILES[planet.id], (texture) => {
+        mat.map.dispose();
+        mat.map = texture;
+        mat.needsUpdate = true;
+    });
+    return mat;
+}
+
+// Saturn's ring texture runs from inner to outer edge, so map U to radius.
+function ringGeometry(inner, outer) {
+    const geometry = new THREE.RingGeometry(inner, outer, 128, 1);
+    const pos = geometry.attributes.position;
+    const uv = geometry.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+        const r = Math.hypot(pos.getX(i), pos.getY(i));
+        uv.setXY(i, (r - inner) / (outer - inner), 0.5);
+    }
+    return geometry;
+}
+
 const hitTargets = [];
 const planetBodies = PLANETS.map((planet) => {
     const size = planet.radiusEarth * EARTH_RADIUS_UNITS;
@@ -653,20 +705,40 @@ const planetBodies = PLANETS.map((planet) => {
         solarMaterial(new THREE.LineBasicMaterial({ color: 0x9cc4ff, depthWrite: false }), 0.22)
     ));
 
-    const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(size, 48, 24),
-        solarMaterial(new THREE.MeshStandardMaterial({ map: surfaceTexture(planet), roughness: 0.9, metalness: 0 }))
-    );
-    keplerPosition(planet.elements, T, mesh.position);
-    solar.add(mesh);
+    // holder: orbital position. tilt: axial tilt. mesh: spins on its axis.
+    const holder = new THREE.Group();
+    keplerPosition(planet.elements, T, holder.position);
+    solar.add(holder);
+    const tilt = new THREE.Group();
+    tilt.rotation.z = THREE.MathUtils.degToRad(AXIAL_TILT[planet.id]);
+    holder.add(tilt);
+
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(size, 64, 32), planetMaterial(planet));
+    tilt.add(mesh);
+
+    if (planet.id === 'earth') {
+        const clouds = new THREE.Mesh(
+            new THREE.SphereGeometry(size * 1.012, 64, 32),
+            solarMaterial(new THREE.MeshStandardMaterial({ color: 0xffffff, depthWrite: false, roughness: 1 }), 0.9)
+        );
+        loadTexture('2k_earth_clouds.jpg', (texture) => {
+            clouds.material.alphaMap = texture;
+            clouds.material.needsUpdate = true;
+        });
+        clouds.material.opacity = 0;
+        mesh.add(clouds);
+    }
 
     if (planet.ring) {
-        const ring = new THREE.Mesh(
-            new THREE.RingGeometry(size * 1.24, size * 2.27, 64),
-            solarMaterial(new THREE.MeshStandardMaterial({ color: 0xcdb98f, side: THREE.DoubleSide, depthWrite: false, roughness: 1 }), 0.7)
-        );
-        ring.rotation.x = -Math.PI / 2 + THREE.MathUtils.degToRad(27);
-        mesh.add(ring);
+        // Rings lie in the equatorial plane, so they share the axial tilt.
+        const ringMaterial = solarMaterial(new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthWrite: false, roughness: 1 }), 0.95);
+        loadTexture('2k_saturn_ring_alpha.png', (texture) => {
+            ringMaterial.map = texture;
+            ringMaterial.needsUpdate = true;
+        });
+        const ring = new THREE.Mesh(ringGeometry(size * 1.24, size * 2.27), ringMaterial);
+        ring.rotation.x = -Math.PI / 2;
+        tilt.add(ring);
     }
 
     // Small planets are hard to click; give each a larger invisible target.
@@ -678,7 +750,9 @@ const planetBodies = PLANETS.map((planet) => {
     mesh.add(hit);
     hitTargets.push(hit);
 
-    return { planet, mesh, size };
+    // Spin is for show: a few seconds per turn, faster for the giants.
+    const spin = ['jupiter', 'saturn', 'uranus', 'neptune'].includes(planet.id) ? 0.6 : 0.25;
+    return { planet, holder, mesh, size, spin };
 });
 
 const sunHit = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
@@ -696,7 +770,10 @@ function updateSolarSystem(delta) {
     solar.visible = solarFade > 0.01;
     if (!reducedMotion) simTime += delta * SIM_DAYS_PER_SECOND * 86400000;
     const T = julianCenturies(simTime);
-    for (const body of planetBodies) keplerPosition(body.planet.elements, T, body.mesh.position);
+    for (const body of planetBodies) {
+        keplerPosition(body.planet.elements, T, body.holder.position);
+        if (!reducedMotion) body.mesh.rotation.y += body.spin * delta;
+    }
     solar.updateMatrixWorld(true);
     for (const mat of solarMaterials) mat.opacity = mat.userData.baseOpacity * solarFade;
 }

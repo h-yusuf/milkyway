@@ -12,7 +12,7 @@ Live: https://milkyway.dknia.my.id
 - Labels pinned to the galactic center, the arms, and the Sun.
 - A scale bar in light-years that updates as you zoom (1 scene unit = 625 light-years).
 - Zoom in on the Sun (or click its label) to see the Solar System. Planet positions come from JPL Keplerian orbital elements for today's date (real eccentricity and inclination), distances keep their true ratios, and planet sizes keep their true ratios to each other. Planets are enlarged by one shared factor and the Sun is shrunk so it does not swallow Mercury's orbit. The orbital plane is tilted about 60° to the galactic disk.
-- Click a planet to fly in for a close-up that follows it along its orbit; planets have simple procedural surfaces (cloud bands, continents, polar caps). Earth links out to Google Earth.
+- Click a planet to fly in for a close-up that follows it along its orbit; planets use photo-based texture maps (see `CREDITS.md`), spin on their real axial tilts, and Earth has a separate cloud layer; Saturn's ring uses a real ring texture. Earth links out to Google Earth.
 - Click any label, planet, or the Sun for facts. Named nebulae near the Sun (Orion, Lagoon, Eagle, Crab, Carina) sit at their real galactic longitude and distance.
 - Respects `prefers-reduced-motion` and lowers detail on phones and low-power devices.
 

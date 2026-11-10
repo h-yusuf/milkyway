@@ -16,3 +16,7 @@ This simulation was improved based on the following scientific references and di
 ## Libraries
 *   **Three.js:** [threejs.org](https://threejs.org/)
 *   **GSAP:** [greensock.com](https://greensock.com/gsap/) (for camera animations)
+
+## Planet textures
+*   Sun, Mercury, Venus (cloud tops), Earth (day map and clouds), Jupiter, Saturn (planet and ring), Uranus and Neptune maps by [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Based on NASA imagery.
+*   Mars map from [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) (public domain).
