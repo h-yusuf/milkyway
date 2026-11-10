@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://milkyway.dknia.my.id/sitemap.xml
