@@ -32,7 +32,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="styles.css?v=9">
 </head>
 
 <body>
@@ -46,11 +46,17 @@
     </header>
 
     <nav class="views" aria-label="Views">
-        <button type="button" data-view="overview" aria-pressed="true">Overview</button>
-        <button type="button" data-view="face">Face-on</button>
-        <button type="button" data-view="edge">Edge-on</button>
-        <button type="button" data-view="sun">Find the Sun</button>
-        <button type="button" id="toggleLabels" aria-pressed="true">Labels</button>
+        <div class="segmented">
+            <span class="thumb" aria-hidden="true"></span>
+            <button type="button" data-view="overview" aria-pressed="true">Overview</button>
+            <button type="button" data-view="face">Face-on</button>
+            <button type="button" data-view="edge">Edge-on</button>
+            <button type="button" data-view="sun">Find the Sun</button>
+        </div>
+        <button type="button" class="toggle" id="toggleLabels" aria-pressed="true">
+            <span class="switch" aria-hidden="true"></span>
+            Labels
+        </button>
     </nav>
 
     <footer class="readout">
@@ -82,7 +88,7 @@
             }
         }
     </script>
-    <script type="module" src="script.js?v=17"></script>
+    <script type="module" src="script.js?v=18"></script>
 </body>
 
 </html>

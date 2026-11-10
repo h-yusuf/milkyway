@@ -1128,6 +1128,24 @@ document.querySelectorAll('[data-view]').forEach((btn) => {
     btn.addEventListener('click', () => goToView(btn.dataset.view));
 });
 
+// The segmented control's thumb follows whichever view is pressed (none when dragging freely).
+const segmented = document.querySelector('.segmented');
+const thumb = segmented.querySelector('.thumb');
+function placeThumb() {
+    const active = segmented.querySelector('[aria-pressed="true"]');
+    if (!active) {
+        delete segmented.dataset.active;
+        return;
+    }
+    segmented.dataset.active = active.dataset.view;
+    thumb.style.width = `${active.offsetWidth}px`;
+    thumb.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+new MutationObserver(placeThumb).observe(segmented, { attributes: true, subtree: true, attributeFilter: ['aria-pressed'] });
+window.addEventListener('resize', placeThumb);
+document.fonts.ready.then(placeThumb);
+placeThumb();
+
 const labelToggle = document.getElementById('toggleLabels');
 labelToggle.addEventListener('click', () => {
     const hidden = labelLayer.classList.toggle('is-hidden');

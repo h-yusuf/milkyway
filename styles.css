@@ -68,47 +68,130 @@ body {
     line-height: 1.55;
 }
 
-/* View controls */
+/* View controls: one segmented track for the views, a switch for labels. */
 .views {
     position: fixed;
     top: var(--gutter);
     right: var(--gutter);
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 6px;
-    max-width: 52vw;
+    align-items: center;
+    gap: 14px;
 }
 
-.views button {
+.segmented {
+    position: relative;
+    display: flex;
+    padding: 4px;
+    border-radius: 999px;
+    /* Dark enough to read over the bright core; no blur. */
+    background: rgba(10, 12, 20, 0.72);
+}
+
+/* The thumb slides to the active view; script sets its position. */
+.thumb {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    width: 0;
+    border-radius: 999px;
+    background: var(--starlight);
+    opacity: 0;
+    transition: transform 420ms cubic-bezier(0.3, 0.8, 0.2, 1), width 420ms cubic-bezier(0.3, 0.8, 0.2, 1),
+        background-color 300ms ease, opacity 200ms ease;
+}
+
+.segmented[data-active] .thumb {
+    opacity: 1;
+}
+
+.segmented[data-active="sun"] .thumb {
+    background: var(--sol);
+}
+
+.segmented button,
+.toggle {
     appearance: none;
     border: none;
-    background: rgba(242, 238, 230, 0.07);
-    color: rgba(242, 238, 230, 0.82);
+    background: none;
     font: inherit;
     font-size: 13px;
-    padding: 9px 14px;
-    border-radius: 0;
     cursor: pointer;
-    transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
 }
 
-.views button:active {
-    transform: translateY(1px);
+.segmented button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 15px;
+    border-radius: 999px;
+    color: rgba(242, 238, 230, 0.7);
+    transition: color 250ms ease;
 }
 
-.views button:hover {
-    background: rgba(242, 238, 230, 0.14);
+.segmented button:hover {
     color: var(--starlight);
 }
 
-.views button[aria-pressed="true"] {
-    background: var(--ob-blue);
-    color: #04070d;
+.segmented button[aria-pressed="true"] {
+    color: #05070c;
 }
 
+/* The same ring that marks the Sun in the scene. */
+.segmented button[data-view="sun"]::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+}
 
-.views button:focus-visible {
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 12px 6px 6px;
+    border-radius: 999px;
+    background: rgba(10, 12, 20, 0.72);
+    color: rgba(242, 238, 230, 0.8);
+}
+
+.toggle:hover {
+    color: var(--starlight);
+}
+
+.switch {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(242, 238, 230, 0.18);
+    transition: background-color 200ms ease;
+}
+
+.switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--starlight);
+    transition: transform 200ms cubic-bezier(0.3, 0.8, 0.2, 1);
+}
+
+.toggle[aria-pressed="true"] .switch {
+    background: var(--ob-blue);
+}
+
+.toggle[aria-pressed="true"] .switch::after {
+    transform: translateX(14px);
+}
+
+.segmented button:focus-visible,
+.toggle:focus-visible {
     outline: 2px solid var(--ob-blue);
     outline-offset: 2px;
 }
@@ -421,8 +504,20 @@ body {
         bottom: calc(var(--gutter) + 52px);
         left: var(--gutter);
         right: var(--gutter);
-        max-width: none;
-        justify-content: flex-start;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .segmented {
+        flex: 1 1 100%;
+    }
+
+    .segmented button {
+        flex: 1 1 auto;
+        justify-content: center;
+        padding: 8px 6px;
+        font-size: 12px;
     }
 
     .credit {
@@ -434,6 +529,9 @@ body {
 
     .scale-bar,
     .hint,
+    .thumb,
+    .switch,
+    .switch::after,
     .label,
     #loading,
     .views button {
