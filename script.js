@@ -525,8 +525,73 @@ const sunMesh = new THREE.Mesh(
     solarMaterial(new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.82, 0.55).multiplyScalar(2.2) }))
 );
 solar.add(sunMesh);
-solar.add(new THREE.PointLight(0xfff1dc, 2.4, 0, 0));
+solar.add(new THREE.PointLight(0xfff1dc, 1.15, 0, 0));
 scene.add(new THREE.AmbientLight(0x6f7f99, 0.18));
+
+// Small procedural surface maps (equirectangular), so close-ups are not flat discs.
+function surfaceTexture(planet) {
+    const w = 512;
+    const h = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    const base = new THREE.Color(planet.color);
+    const shade = (amount) => {
+        const c = base.clone().offsetHSL(0, 0, amount);
+        return `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)})`;
+    };
+    const blob = (x, y, rx, ry, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(x, y, rx, ry, Math.random() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+    };
+
+    ctx.fillStyle = shade(0);
+    ctx.fillRect(0, 0, w, h);
+
+    if (planet.kind === 'Gas giant' || planet.kind === 'Ice giant') {
+        // Latitude bands; ice giants get only faint ones.
+        const strength = planet.kind === 'Gas giant' ? 0.12 : 0.03;
+        let y = 0;
+        while (y < h) {
+            const band = 4 + Math.random() * 18;
+            ctx.fillStyle = shade((Math.random() - 0.5) * 2 * strength);
+            ctx.fillRect(0, y, w, band);
+            y += band;
+        }
+        if (planet.id === 'jupiter') blob(w * 0.62, h * 0.64, 26, 13, 'rgb(190, 96, 64)');
+    } else if (planet.id === 'earth') {
+        ctx.fillStyle = 'rgb(28, 70, 140)';
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 26; i++) {
+            const green = Math.random() < 0.6;
+            blob(Math.random() * w, h * (0.2 + Math.random() * 0.6), 14 + Math.random() * 40, 8 + Math.random() * 26,
+                green ? 'rgb(64, 110, 60)' : 'rgb(150, 125, 85)');
+        }
+        ctx.globalAlpha = 0.28;
+        for (let i = 0; i < 70; i++) blob(Math.random() * w, Math.random() * h, 8 + Math.random() * 30, 1.5 + Math.random() * 3, '#ffffff');
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#f4f6fa';
+        ctx.fillRect(0, 0, w, h * 0.06);
+        ctx.fillRect(0, h * 0.94, w, h * 0.06);
+    } else {
+        // Rocky worlds: mottled light and dark patches.
+        for (let i = 0; i < 220; i++) {
+            blob(Math.random() * w, Math.random() * h, 3 + Math.random() * 16, 2 + Math.random() * 10, shade((Math.random() - 0.5) * 0.18));
+        }
+        if (planet.id === 'mars') {
+            ctx.fillStyle = 'rgb(236, 232, 226)';
+            ctx.fillRect(0, 0, w, h * 0.05);
+            ctx.fillRect(0, h * 0.96, w, h * 0.04);
+        }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+}
 
 function orbitRadius(au) {
     return 0.28 + 2.5 * Math.sqrt(au / 30.07);
@@ -552,7 +617,7 @@ const planetBodies = PLANETS.map((planet) => {
 
     const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(planet.size * 1.4, 24, 16),
-        solarMaterial(new THREE.MeshStandardMaterial({ color: planet.color, roughness: 0.85, metalness: 0 }))
+        solarMaterial(new THREE.MeshStandardMaterial({ map: surfaceTexture(planet), roughness: 0.9, metalness: 0 }))
     );
     mesh.position.x = radius;
     pivot.add(mesh);
@@ -560,7 +625,7 @@ const planetBodies = PLANETS.map((planet) => {
     if (planet.ring) {
         const ring = new THREE.Mesh(
             new THREE.RingGeometry(planet.size * 1.9, planet.size * 3.2, 48),
-            solarMaterial(new THREE.MeshBasicMaterial({ color: 0xd9c6a0, side: THREE.DoubleSide, depthWrite: false }), 0.55)
+            solarMaterial(new THREE.MeshStandardMaterial({ color: 0xcdb98f, side: THREE.DoubleSide, depthWrite: false, roughness: 1 }), 0.7)
         );
         ring.rotation.x = -Math.PI / 2 + THREE.MathUtils.degToRad(27);
         mesh.add(ring);
@@ -655,10 +720,7 @@ function addLabel(text, kind, info, getWorldPosition) {
     el.type = 'button';
     el.className = `label ${kind} is-off`;
     el.textContent = text;
-    el.addEventListener('click', () => {
-        openInfo(info);
-        if (info === SUN) goToView('solar');
-    });
+    el.addEventListener('click', () => selectBody(info));
     labelLayer.appendChild(el);
     labels.push({ el, kind, getWorldPosition, world: new THREE.Vector3(), visible: false });
 }
@@ -719,7 +781,8 @@ function updateLabels() {
         label.getWorldPosition(label.world);
         tmp.copy(label.world).project(camera);
         const onScreen = tmp.z < 1 && tmp.x > -1.05 && tmp.x < 1.05 && tmp.y > -1.05 && tmp.y < 1.05;
-        const visible = onScreen && show[label.kind];
+        const isFocused = activeView === 'planet' && focusedBody && label.el.textContent === focusedBody.planet.name;
+        const visible = onScreen && show[label.kind] && !isFocused;
         if (visible !== label.visible) {
             label.visible = visible;
             label.el.classList.toggle('is-off', !visible);
@@ -786,7 +849,7 @@ renderer.domElement.addEventListener('pointerup', (event) => {
     pointer.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
     const hit = raycaster.intersectObjects(hitTargets, false)[0];
-    if (hit) openInfo(hit.object.userData.info);
+    if (hit) selectBody(hit.object.userData.info);
 });
 
 // =============================================================================
@@ -851,9 +914,40 @@ const views = {
         const side = new THREE.Vector3(1, 0, 0).applyEuler(solar.rotation);
         return { target: sun, position: sun.clone().addScaledVector(normal, 5.6 * fit()).addScaledVector(side, 2.4 * fit()) };
     },
+    // Close up on one planet, from the Sun's side so its lit face shows.
+    planet: () => {
+        const p = focusedBody.mesh.getWorldPosition(new THREE.Vector3());
+        const sun = sunWorldPosition(new THREE.Vector3());
+        const toSun = sun.clone().sub(p).normalize();
+        const normal = new THREE.Vector3(0, 1, 0).applyEuler(solar.rotation);
+        const size = focusedBody.planet.size * 1.4;
+        return { target: p, position: p.clone().addScaledVector(toSun, size * 9).addScaledVector(normal, size * 5) };
+    },
 };
 
-const followsSun = (view) => view === 'sun' || view === 'solar';
+let focusedBody = null;
+const followsSun = (view) => view === 'sun' || view === 'solar' || view === 'planet';
+
+// The point the camera rides along with: the Sun, or the planet in focus.
+function anchorPosition(out) {
+    if (activeView === 'planet' && focusedBody) return focusedBody.mesh.getWorldPosition(out);
+    return sunWorldPosition(out);
+}
+
+// Clicking a body opens its facts and flies there: the Sun shows the whole
+// Solar System, a planet gets a close-up. Other labels only open facts.
+function selectBody(info) {
+    openInfo(info);
+    if (info === SUN) {
+        goToView('solar');
+        return;
+    }
+    const body = planetBodies.find((b) => b.planet === info);
+    if (body) {
+        focusedBody = body;
+        goToView('planet');
+    }
+}
 
 let activeView = 'overview';
 let tween = null;
@@ -862,8 +956,9 @@ const followOffset = new THREE.Vector3();
 function goToView(name) {
     activeView = name;
     const { target, position } = views[name]();
-    document.querySelectorAll('[data-view]').forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.view === (name === 'solar' ? 'sun' : name))));
-    controls.minDistance = followsSun(name) ? 0.35 : 8;
+    const pressed = followsSun(name) ? 'sun' : name;
+    document.querySelectorAll('[data-view]').forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.view === pressed)));
+    controls.minDistance = name === 'planet' ? 0.04 : followsSun(name) ? 0.35 : 8;
     if (reducedMotion) {
         controls.target.copy(target);
         camera.position.copy(position);
@@ -884,7 +979,7 @@ function updateTween(now) {
     const p = Math.min(1, (now - tween.start) / tween.duration);
     const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
     if (followsSun(activeView)) {
-        tween.toTarget = sunWorldPosition(new THREE.Vector3());
+        tween.toTarget = anchorPosition(new THREE.Vector3());
         tween.toPosition = views[activeView]().position;
     }
     controls.target.lerpVectors(tween.fromTarget, tween.toTarget, e);
@@ -892,17 +987,19 @@ function updateTween(now) {
     if (p >= 1) tween = null;
 }
 
-// While viewing the Sun, ride along with it as the disk rotates.
-const prevSun = new THREE.Vector3();
-const currentSun = new THREE.Vector3();
+// While viewing the Sun or a planet, ride along with it as it moves.
+const prevAnchor = new THREE.Vector3();
+const currentAnchor = new THREE.Vector3();
+let prevAnchorView = null;
 function followSun() {
-    sunWorldPosition(currentSun);
-    if (followsSun(activeView) && !tween) {
-        followOffset.subVectors(currentSun, prevSun);
+    anchorPosition(currentAnchor);
+    if (followsSun(activeView) && !tween && prevAnchorView === activeView) {
+        followOffset.subVectors(currentAnchor, prevAnchor);
         controls.target.add(followOffset);
         camera.position.add(followOffset);
     }
-    prevSun.copy(currentSun);
+    prevAnchor.copy(currentAnchor);
+    prevAnchorView = activeView;
 }
 
 document.querySelectorAll('[data-view]').forEach((btn) => {

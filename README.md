@@ -12,6 +12,7 @@ Live: https://milkyway.dknia.my.id
 - Labels pinned to the galactic center, the arms, and the Sun.
 - A scale bar in light-years that updates as you zoom (1 scene unit = 625 light-years).
 - Zoom in on the Sun (or click its label) to see the Solar System: the eight planets orbit with their real relative periods, and the orbital plane is tilted about 60° to the galactic disk. Sizes and distances are not to scale.
+- Click a planet to fly in for a close-up that follows it along its orbit; planets have simple procedural surfaces (cloud bands, continents, polar caps). Earth links out to Google Earth.
 - Click any label, planet, or the Sun for facts. Named nebulae near the Sun (Orion, Lagoon, Eagle, Crab, Carina) sit at their real galactic longitude and distance.
 - Respects `prefers-reduced-motion` and lowers detail on phones and low-power devices.
 
