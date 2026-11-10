@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { SUN, PLANETS, NEBULAE, GALAXY_INFO } from './bodies.js?v=5';
+import { SUN, PLANETS, NEBULAE, GALAXY_INFO, MOONS, PLANET_RADIUS_KM } from './bodies.js?v=6';
 
 // =============================================================================
 // SCALE
@@ -755,6 +755,81 @@ const planetBodies = PLANETS.map((planet) => {
     return { planet, holder, mesh, size, spin };
 });
 
+// =============================================================================
+// MOONS
+// Order, sizes relative to their planet, inclinations and period ratios are real.
+// Distances are compressed on a log scale: the Moon's real 60 Earth radii would
+// reach past Venus's orbit at this enlarged planet scale. Moons faster than one
+// orbit every 3 seconds are slowed so they do not strobe.
+// =============================================================================
+const MOON_TIME = 0.06; // The Moon takes about 25 seconds per orbit.
+const MIN_MOON_ORBIT_SECONDS = 3;
+
+function moonInfo(moon) {
+    const parent = PLANETS.find((p) => p.id === moon.parent);
+    const days = Math.abs(moon.periodDays);
+    const orbit = days < 1 ? `${Math.round(days * 24)} hours` : `${days.toLocaleString('en-US', { maximumFractionDigits: 1 })} days`;
+    return {
+        name: moon.name,
+        kind: moon.id === 'moon' ? 'Earth\'s moon' : `Moon of ${parent.name}`,
+        text: moon.text,
+        facts: [
+            [`From ${parent.name}`, `${moon.aKm.toLocaleString('en-US')} km`],
+            ['Diameter', `${(moon.radiusKm * 2).toLocaleString('en-US')} km`],
+            ['One orbit', moon.periodDays < 0 ? `${orbit}, backwards` : orbit],
+        ],
+    };
+}
+
+const moonBodies = MOONS.map((moon) => {
+    const parent = planetBodies.find((b) => b.planet.id === moon.parent);
+    const R = parent.size;
+    const ratio = moon.aKm / PLANET_RADIUS_KM[moon.parent];
+    const distance = R * (1.5 + 1.5 * Math.log10(ratio));
+    const size = Math.max((moon.radiusKm / PLANET_RADIUS_KM[moon.parent]) * R, 0.0004);
+
+    // Planet moons orbit in the planet's equator (inside its tilt); the Moon's
+    // orbit is set against the ecliptic instead, so it hangs off the holder.
+    const plane = new THREE.Group();
+    plane.rotation.x = THREE.MathUtils.degToRad(moon.inclination ?? 0);
+    (moon.id === 'moon' ? parent.holder : parent.mesh.parent).add(plane);
+
+    const ring = [];
+    for (let i = 0; i <= 96; i++) {
+        const a = (i / 96) * Math.PI * 2;
+        ring.push(new THREE.Vector3(Math.cos(a) * distance, 0, Math.sin(a) * distance));
+    }
+    plane.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(ring),
+        solarMaterial(new THREE.LineBasicMaterial({ color: 0xf2eee6, depthWrite: false }), 0.12)
+    ));
+
+    const pivot = new THREE.Group();
+    plane.add(pivot);
+    const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(size, 32, 16),
+        solarMaterial(new THREE.MeshStandardMaterial({ color: moon.color, roughness: 1, metalness: 0 }))
+    );
+    mesh.position.x = distance;
+    pivot.add(mesh);
+
+    // The Moon starts at its real mean longitude for today, so its phase is right
+    // when the page opens. Other moons start at an arbitrary point.
+    if (moon.id === 'moon') {
+        const T = julianCenturies(simTime);
+        pivot.rotation.y = THREE.MathUtils.degToRad((218.3165 + 481267.8813 * T) % 360);
+    } else {
+        pivot.rotation.y = Math.random() * Math.PI * 2;
+    }
+
+    const realSpeed = ((Math.PI * 2) / moon.periodDays) * SIM_DAYS_PER_SECOND * MOON_TIME;
+    const maxSpeed = (Math.PI * 2) / MIN_MOON_ORBIT_SECONDS;
+    const speed = Math.sign(realSpeed) * Math.min(Math.abs(realSpeed), maxSpeed);
+    // Close-ups pull back far enough to show the planet's whole moon system.
+    parent.viewDistance = Math.max(parent.viewDistance ?? 0, distance * 2.3);
+    return { moon, parent, pivot, mesh, speed, info: moonInfo(moon) };
+});
+
 const sunHit = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
 sunHit.userData.info = SUN;
 solar.add(sunHit);
@@ -770,9 +845,16 @@ function updateSolarSystem(delta) {
     solar.visible = solarFade > 0.01;
     if (!reducedMotion) simTime += delta * SIM_DAYS_PER_SECOND * 86400000;
     const T = julianCenturies(simTime);
+    // In a close-up, other planets would loom huge (they are enlarged ~1,400x),
+    // which no real view from there shows, so only the planet in focus is drawn.
+    const closeUp = activeView === 'planet' && focusedBody;
     for (const body of planetBodies) {
+        body.holder.visible = !closeUp || body === focusedBody;
         keplerPosition(body.planet.elements, T, body.holder.position);
         if (!reducedMotion) body.mesh.rotation.y += body.spin * delta;
+    }
+    if (!reducedMotion) {
+        for (const m of moonBodies) m.pivot.rotation.y += m.speed * delta;
     }
     solar.updateMatrixWorld(true);
     for (const mat of solarMaterials) mat.opacity = mat.userData.baseOpacity * solarFade;
@@ -836,7 +918,9 @@ function addLabel(text, kind, info, getWorldPosition) {
     el.textContent = text;
     el.addEventListener('click', () => selectBody(info));
     labelLayer.appendChild(el);
-    labels.push({ el, kind, getWorldPosition, world: new THREE.Vector3(), visible: false });
+    const label = { el, kind, getWorldPosition, world: new THREE.Vector3(), visible: false };
+    labels.push(label);
+    return label;
 }
 
 const tmp = new THREE.Vector3();
@@ -868,6 +952,10 @@ for (const nebula of NEBULAE) {
 for (const body of planetBodies) {
     addLabel(body.planet.name, 'planet', body.planet, (out) => body.mesh.getWorldPosition(out));
 }
+for (const m of moonBodies) {
+    const label = addLabel(m.moon.name, 'moon', m.info, (out) => m.mesh.getWorldPosition(out));
+    label.parentId = m.moon.parent;
+}
 
 function sunWorldPosition(out) {
     rotatePoint(SUN_POSITION.x, SUN_POSITION.z, uniforms.uTime.value, uniforms.uExpansion.value, out);
@@ -889,7 +977,8 @@ function updateLabels() {
         arm: galaxyScale && distance >= 45 && elevation > THREE.MathUtils.degToRad(12),
         sun: uniforms.uExpansion.value > 0.97,
         nebula: galaxyScale && distanceToSun < 45,
-        planet: solarFade > 0.6,
+        planet: solarFade > 0.6 && activeView !== 'planet',
+        moon: solarFade > 0.6 && activeView === 'planet',
     };
     // With true distances the inner planets crowd the Sun; drop their names
     // until zooming in gives them room.
@@ -904,7 +993,9 @@ function updateLabels() {
         const px = (tmp.x * 0.5 + 0.5) * w;
         const py = (-tmp.y * 0.5 + 0.5) * h;
         const crowded = label.kind === 'planet' && Math.hypot(px - sunX, py - sunY) < 30;
-        const visible = onScreen && show[label.kind] && !isFocused && !crowded;
+        // Moons only show around the planet in focus.
+        const otherMoon = label.kind === 'moon' && (!focusedBody || label.parentId !== focusedBody.planet.id);
+        const visible = onScreen && show[label.kind] && !isFocused && !crowded && !otherMoon;
         if (visible !== label.visible) {
             label.visible = visible;
             label.el.classList.toggle('is-off', !visible);
@@ -1042,8 +1133,8 @@ const views = {
         const sun = sunWorldPosition(new THREE.Vector3());
         const toSun = sun.clone().sub(p).normalize();
         const normal = new THREE.Vector3(0, 1, 0).applyEuler(solar.rotation);
-        const size = focusedBody.size;
-        return { target: p, position: p.clone().addScaledVector(toSun, size * 6).addScaledVector(normal, size * 2.5) };
+        const d = Math.max(focusedBody.size * 6.5, focusedBody.viewDistance ?? 0);
+        return { target: p, position: p.clone().addScaledVector(toSun, d * 0.92).addScaledVector(normal, d * 0.4) };
     },
 };
 

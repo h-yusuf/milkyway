@@ -331,6 +331,16 @@ body {
     color: rgba(242, 238, 230, 0.7);
 }
 
+.label.moon {
+    font-size: 11px;
+    color: rgba(242, 238, 230, 0.55);
+}
+
+.label.moon::before {
+    width: 3px;
+    height: 3px;
+}
+
 .label.planet::before {
     display: none;
 }

@@ -127,3 +127,49 @@ export const GALAXY_INFO = {
         facts: [['Position', 'Inner galaxy, toward Norma']],
     },
 };
+
+// Major moons. aKm: mean orbital distance from the planet's center; periodDays:
+// sidereal orbit; radiusKm: mean radius; inclination: degrees to the planet's
+// equator (the Moon's is to the ecliptic). Negative period means retrograde.
+export const PLANET_RADIUS_KM = { earth: 6371, mars: 3390, jupiter: 69911, saturn: 58232, uranus: 25362, neptune: 24622 };
+
+export const MOONS = [
+    { id: 'moon', parent: 'earth', name: 'The Moon', aKm: 384400, periodDays: 27.32, radiusKm: 1737, inclination: 5.1, color: 0xb9b5ae,
+        text: 'Earth\'s only natural satellite. It always shows the same face to Earth, and its gravity drives the ocean tides.' },
+    { id: 'phobos', parent: 'mars', name: 'Phobos', aKm: 9376, periodDays: 0.319, radiusKm: 11.3, color: 0x8a7a6a,
+        text: 'The larger and closer of Mars\'s two small moons. It circles Mars about three times a day and is slowly spiralling inward.' },
+    { id: 'deimos', parent: 'mars', name: 'Deimos', aKm: 23463, periodDays: 1.263, radiusKm: 6.2, color: 0x9c8c78,
+        text: 'The smaller, outer moon of Mars, only about 12 km across.' },
+    { id: 'io', parent: 'jupiter', name: 'Io', aKm: 421700, periodDays: 1.769, radiusKm: 1822, color: 0xe2c96a,
+        text: 'The most volcanically active world in the Solar System.' },
+    { id: 'europa', parent: 'jupiter', name: 'Europa', aKm: 671034, periodDays: 3.551, radiusKm: 1561, color: 0xd9cdb4,
+        text: 'An ice shell over a global ocean of liquid water.' },
+    { id: 'ganymede', parent: 'jupiter', name: 'Ganymede', aKm: 1070412, periodDays: 7.155, radiusKm: 2634, color: 0x9f978a,
+        text: 'The largest moon in the Solar System, bigger than Mercury, with a magnetic field of its own.' },
+    { id: 'callisto', parent: 'jupiter', name: 'Callisto', aKm: 1882709, periodDays: 16.689, radiusKm: 2410, color: 0x6f6658,
+        text: 'One of the most heavily cratered surfaces in the Solar System.' },
+    { id: 'enceladus', parent: 'saturn', name: 'Enceladus', aKm: 237948, periodDays: 1.370, radiusKm: 252, color: 0xf2f2f0,
+        text: 'Jets of water vapour and ice spray from cracks near its south pole.' },
+    { id: 'tethys', parent: 'saturn', name: 'Tethys', aKm: 294619, periodDays: 1.888, radiusKm: 531, color: 0xdedcd6,
+        text: 'An icy moon of Saturn marked by a huge crater and a long canyon.' },
+    { id: 'dione', parent: 'saturn', name: 'Dione', aKm: 377396, periodDays: 2.737, radiusKm: 561, color: 0xcfccc4,
+        text: 'An icy moon of Saturn streaked with bright cliffs.' },
+    { id: 'rhea', parent: 'saturn', name: 'Rhea', aKm: 527108, periodDays: 4.518, radiusKm: 764, color: 0xc8c4bb,
+        text: 'Saturn\'s second-largest moon, an airless ball of ice and rock.' },
+    { id: 'titan', parent: 'saturn', name: 'Titan', aKm: 1221870, periodDays: 15.945, radiusKm: 2575, color: 0xd9a24c,
+        text: 'The only moon with a thick atmosphere, and with lakes of liquid methane and ethane.' },
+    { id: 'iapetus', parent: 'saturn', name: 'Iapetus', aKm: 3560820, periodDays: 79.32, radiusKm: 735, inclination: 15.5, color: 0x8d8676,
+        text: 'One side is dark as coal, the other bright as snow.' },
+    { id: 'miranda', parent: 'uranus', name: 'Miranda', aKm: 129390, periodDays: 1.413, radiusKm: 236, color: 0xbfbcb6,
+        text: 'A patchwork of ridges and cliffs, including one of the tallest known in the Solar System.' },
+    { id: 'ariel', parent: 'uranus', name: 'Ariel', aKm: 190900, periodDays: 2.520, radiusKm: 579, color: 0xcfcbc4,
+        text: 'The brightest of Uranus\'s large moons.' },
+    { id: 'umbriel', parent: 'uranus', name: 'Umbriel', aKm: 266000, periodDays: 4.144, radiusKm: 585, color: 0x7d7a74,
+        text: 'The darkest of Uranus\'s large moons.' },
+    { id: 'titania', parent: 'uranus', name: 'Titania', aKm: 435910, periodDays: 8.706, radiusKm: 789, color: 0xb3ada3,
+        text: 'The largest moon of Uranus.' },
+    { id: 'oberon', parent: 'uranus', name: 'Oberon', aKm: 583520, periodDays: 13.463, radiusKm: 761, color: 0xa39c92,
+        text: 'The outermost of Uranus\'s large moons, scarred by old craters.' },
+    { id: 'triton', parent: 'neptune', name: 'Triton', aKm: 354759, periodDays: -5.877, radiusKm: 1353, inclination: 157, color: 0xd8cfc4,
+        text: 'It orbits Neptune backwards, so it was probably captured from the Kuiper Belt.' },
+];
