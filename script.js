@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { SUN, PLANETS, NEBULAE, GALAXY_INFO } from './bodies.js?v=3';
+import { SUN, PLANETS, NEBULAE, GALAXY_INFO } from './bodies.js?v=4';
 
 // =============================================================================
 // SCALE
@@ -740,6 +740,7 @@ const infoTitle = document.getElementById('infoTitle');
 const infoKind = document.getElementById('infoKind');
 const infoText = document.getElementById('infoText');
 const infoFacts = document.getElementById('infoFacts');
+const infoLink = document.getElementById('infoLink');
 
 function openInfo(info) {
     infoTitle.textContent = info.name;
@@ -752,6 +753,12 @@ function openInfo(info) {
         dd.textContent = value;
         return [dt, dd];
     }));
+    // Some bodies link out to a closer look elsewhere (Earth -> Google Earth).
+    infoLink.hidden = !info.link;
+    if (info.link) {
+        infoLink.href = info.link.url;
+        infoLink.textContent = info.link.label;
+    }
     infoPanel.hidden = false;
 }
 

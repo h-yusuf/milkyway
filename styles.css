@@ -322,6 +322,31 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+.info-link {
+    display: inline-flex;
+    margin-top: 18px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: var(--starlight);
+    color: var(--void);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.info-link[hidden] {
+    display: none;
+}
+
+.info-link:hover {
+    background: #ffffff;
+}
+
+.info-link:focus-visible {
+    outline: 2px solid var(--ob-blue);
+    outline-offset: 2px;
+}
+
 .info-close {
     position: absolute;
     top: 12px;

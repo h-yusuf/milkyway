@@ -29,6 +29,7 @@ export const PLANETS = [
     {
         id: 'earth', name: 'Earth', kind: 'Rocky planet', au: 1.0, years: 1.0, size: 0.036, color: 0x4a7ec2,
         text: 'The only world known to have life. Liquid water covers about 71% of its surface.',
+        link: { label: 'Explore Earth in Google Earth', url: 'https://earth.google.com/web/' },
         facts: [['Distance from the Sun', '1 AU (150 million km)'], ['Diameter', '12,742 km'], ['One year', '365.25 days'], ['Moons', '1']],
     },
     {
